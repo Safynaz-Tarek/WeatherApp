@@ -2,13 +2,18 @@ package com.example.weatherapp;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.InflateException;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.example.weatherapp.data.SunshinePreferences;
@@ -22,27 +27,56 @@ import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
-    private TextView mWeatherTextView;
+    private TextView mErrorTextView;
+    private ProgressBar mProgressBar;
+    private ForecastAdapter mForecastAdapter;
+    private RecyclerView mRecyclerView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mWeatherTextView = (TextView) findViewById(R.id.tv_weather_data);
+        mErrorTextView = (TextView) findViewById(R.id.tv_error_message);
+        mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
+
+        mForecastAdapter = new ForecastAdapter(this);
+        mRecyclerView = findViewById(R.id.recyclerView_forecast);
+        LinearLayoutManager linearLayoutManager =
+                new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false);
+
+        mRecyclerView.setAdapter(mForecastAdapter);
+        mRecyclerView.setLayoutManager(linearLayoutManager);
         loadWeatherData();
     }
 
+    private void showWeatherDataView(){
+        mErrorTextView.setVisibility(View.INVISIBLE);
+        mRecyclerView.setVisibility(View.VISIBLE);
+    }
+
+    private void showErrorMessage(){
+        mErrorTextView.setVisibility(View.VISIBLE);
+        mRecyclerView.setVisibility(View.INVISIBLE);
+    }
     /**
      * This method will get the user's preferred location for weather, and then tell some
      * background method to get the weather data in the background.
      */
     private void loadWeatherData() {
+        showWeatherDataView();
         String location = SunshinePreferences.getPreferredWeatherLocation(this);
         new FetchWeatherTask().execute(location);
     }
 
             /*Create the Network connection in another thread*/
     private class FetchWeatherTask extends AsyncTask<String, Void, String[]> {
+        @Override
+        protected void onPreExecute() {
+            mProgressBar.setVisibility(View.VISIBLE);
+            super.onPreExecute();
+        }
+
         @Override
         protected String[] doInBackground(String... strings) {
 
@@ -68,10 +102,13 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(String[] weatherData) {
+            mProgressBar.setVisibility(View.INVISIBLE);
             if(weatherData != null){
-                for(String weatherString : weatherData){
-                    mWeatherTextView.append((weatherString)+ "\n\n\n");
-                }
+                showWeatherDataView();
+                mForecastAdapter.setWeatherData(weatherData);
+
+            }else{
+                showErrorMessage();
             }
         }
     }
@@ -84,12 +121,13 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
+
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
 
         if(id == R.id.action_refresh){
-            mWeatherTextView.setText("");
+            mForecastAdapter.setWeatherData(null);
             loadWeatherData();
             return true;
         }
